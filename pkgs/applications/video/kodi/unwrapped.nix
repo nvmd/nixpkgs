@@ -38,22 +38,9 @@ assert usbSupport -> !udevSupport; # libusb-compat-0_1 won't be used if udev is 
 assert gbmSupport || waylandSupport || x11Support;
 
 let
-  kodiReleaseDate = "20230312";
-  kodiVersion = "20.1";
-  rel = "Nexus";
-
-  kodi_src = fetchFromGitHub {
-    owner = "xbmc";
-    repo = "xbmc";
-    rev = "${kodiVersion}-${rel}";
-    hash = "sha256-2nwjW0MYrMVk+dllrAv9yn+YNA6/loZzoK8mbFIZ8Xs=";
-  };
-
   # see https://github.com/xbmc/xbmc/blob/${kodiVersion}-${rel}/tools/depends/target/ to get suggested versions for all dependencies
 
-  # kodi 20.0 moved to ffmpeg 5, *but* there is a bug making the compilation fail which will
-  # only been fixed in kodi 21, so stick to ffmpeg 4 for now
-  ffmpeg = stdenv.mkDerivation rec {
+  ffmpeg = (kodi_src: rel: stdenv.mkDerivation rec {
     pname = "kodi-ffmpeg";
     version = "4.4.1";
     src = fetchFromGitHub {
@@ -76,7 +63,7 @@ let
     buildInputs = [ libidn2 libtasn1 p11-kit zlib libva ]
       ++ lib.optional vdpauSupport libvdpau;
     nativeBuildInputs = [ cmake nasm pkg-config gnutls ];
-  };
+  });
 
   # We can build these externally but FindLibDvd.cmake forces us to build it
   # them, so we currently just use them for the src.
@@ -105,11 +92,22 @@ let
     ++ lib.optional waylandSupport "wayland"
     ++ lib.optional x11Support "x11";
 
-in stdenv.mkDerivation {
+in stdenv.mkDerivation (finalAttrs: {
     pname = "kodi";
-    version = kodiVersion;
+    version = "20.1";
+    kodiReleaseName = "Nexus";
 
-    src = kodi_src;
+    src = fetchFromGitHub {
+      owner = "xbmc";
+      repo  = "xbmc";
+      rev   = "${finalAttrs.version}-${finalAttrs.kodiReleaseName}";
+      hash  = "sha256-2nwjW0MYrMVk+dllrAv9yn+YNA6/loZzoK8mbFIZ8Xs=";
+    };
+
+    # make  derivations declared in the let binding available here, so
+    # they can be overridden
+    inherit libdvdcss libdvdnav libdvdread;
+    ffmpeg = ffmpeg finalAttrs.src finalAttrs.kodiReleaseName;
 
     buildInputs = [
       gnutls libidn2 libtasn1 nasm p11-kit
@@ -129,7 +127,7 @@ in stdenv.mkDerivation {
       libxcrypt libgcrypt libgpg-error libunistring
       libcrossguid libplist
       bluez giflib glib harfbuzz lcms2 libpthreadstubs
-      ffmpeg flatbuffers fstrcmp rapidjson
+      finalAttrs.ffmpeg flatbuffers fstrcmp rapidjson
       lirc
       mesa # for libEGL
     ]
@@ -178,10 +176,12 @@ in stdenv.mkDerivation {
 
     cmakeFlags = [
       "-DAPP_RENDER_SYSTEM=${if gbmSupport then "gles" else "gl"}"
-      "-Dlibdvdcss_URL=${libdvdcss}"
-      "-Dlibdvdnav_URL=${libdvdnav}"
-      "-Dlibdvdread_URL=${libdvdread}"
-      "-DGIT_VERSION=${kodiReleaseDate}"
+      "-Dlibdvdcss_URL=${finalAttrs.libdvdcss}"
+      "-Dlibdvdnav_URL=${finalAttrs.libdvdnav}"
+      "-Dlibdvdread_URL=${finalAttrs.libdvdread}"
+      # Upstream derives this from the git HEADs hash and date.
+      # LibreElec (minimal distro for kodi) uses the equivalent to this.
+      "-DGIT_VERSION=${finalAttrs.version}-${finalAttrs.kodiReleaseName}"
       "-DENABLE_EVENTCLIENTS=ON"
       "-DENABLE_INTERNAL_CROSSGUID=OFF"
       "-DENABLE_INTERNAL_RapidJSON=OFF"
@@ -246,7 +246,8 @@ in stdenv.mkDerivation {
 
     passthru = {
       pythonPackages = python3Packages;
-      ffmpeg = ffmpeg;
+      ffmpeg = finalAttrs.ffmpeg;
+      kodi = finalAttrs.finalPackage;
     };
 
     meta = with lib; {
@@ -256,4 +257,4 @@ in stdenv.mkDerivation {
       platforms   = platforms.linux;
       maintainers = teams.kodi.members;
     };
-}
+})
