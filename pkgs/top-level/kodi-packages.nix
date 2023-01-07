@@ -9,7 +9,7 @@ in
 let self = rec {
 
   addonDir = "/share/kodi/addons";
-  rel = "Nexus";
+  rel = kodi.kodiReleaseName;
 
   callPackage = newScope self;
 
