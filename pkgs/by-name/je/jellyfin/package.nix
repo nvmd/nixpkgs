@@ -1,6 +1,7 @@
 {
   lib,
   fetchFromGitHub,
+  fetchpatch,
   nixosTests,
   dotnetCorePackages,
   buildDotnetModule,
@@ -13,14 +14,24 @@
 
 buildDotnetModule rec {
   pname = "jellyfin";
-  version = "10.9.7"; # ensure that jellyfin-web has matching version
+  version = "10.9.9"; # ensure that jellyfin-web has matching version
 
   src = fetchFromGitHub {
     owner = "jellyfin";
     repo = "jellyfin";
     rev = "v${version}";
-    sha256 = "sha256-jxOFbmYrgxP6jbjnWubajqXInLXu7TO4vssU4E1oeoc=";
+    sha256 = "sha256-kck4VQiH+uZvASO1YxKze2pu8N+z5rqYJAXFVPc+ZJU=";
   };
+
+  patches = [
+    (fetchpatch {
+      # This patch has already been merged into release maintenance branch,
+      # won't be needed after the next release
+      name = "Fix-StyleCop-SA1201-PR12390.patch";
+      url = "https://github.com/jellyfin/jellyfin/commit/bc613b8344f2e48cd615ecd965e8e503e5e666d3.patch";
+      hash = "sha256-24p5cO0PunfpM5trAIEdwhKiQayYsC0RbAO222wjgcU=";
+    })
+  ];
 
   propagatedBuildInputs = [ sqlite ];
 
