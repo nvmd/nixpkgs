@@ -1097,7 +1097,8 @@ let
   */
   mkRemovedOptionModule = optionName: replacementInstructions:
     { options, ... }:
-    { options = setAttrByPath optionName (mkOption {
+    { key = "removedOptionModule#" + concatStringsSep "_" optionName;
+      options = setAttrByPath optionName (mkOption {
         visible = false;
         apply = x: throw "The option `${showOption optionName}' can no longer be used since it's been removed. ${replacementInstructions}";
       });
