@@ -1318,6 +1318,7 @@ let
     optionName: replacementInstructions:
     { options, ... }:
     {
+      key = "removedOptionModule#" + concatStringsSep "_" optionName;
       options = setAttrByPath optionName (mkOption {
         visible = false;
         apply =
